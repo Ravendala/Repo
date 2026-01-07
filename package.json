@@ -8,8 +8,8 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "lowdb": "^1.0.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "pg": "^8.11.3"
   },
   "author": "You",
   "license": "MIT"
