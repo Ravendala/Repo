@@ -1,0 +1,15 @@
+{
+  "name": "license-server",
+  "version": "1.0.0",
+  "description": "License server for early access game translations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "lowdb": "^1.0.0"
+  },
+  "author": "You",
+  "license": "MIT"
+}
