@@ -7,6 +7,7 @@ const db = low(adapter);
 const app = express();
 app.use(express.json());
 
+// CORS для всех (браузер + лаунчер)
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -14,15 +15,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// Инициализация БД
 db.defaults({ 
   keys: {}, 
-  adminPass: 'accesstranslation'
+  adminPass: 'accesstranslation'  // ←←← Твой текущий пароль (можно сменить на более сложный)
 }).write();
 
+// Пинг для проверки интернета / keep-alive
 app.get('/ping', (req, res) => res.send('ok'));
 
 const API = '/api';
 
+// Регистрация нового устройства (первый запуск)
 app.post(API + '/register', (req, res) => {
   const { key, device } = req.body;
   if (!key || !device) return res.json({ valid: false, err: 'missing data' });
@@ -42,6 +46,7 @@ app.post(API + '/register', (req, res) => {
   res.json({ valid: true });
 });
 
+// Валидация (каждый запуск и фоновая проверка)
 app.post(API + '/validate', (req, res) => {
   const { key, device } = req.body;
   if (!key || !device) return res.json({ valid: false });
@@ -65,36 +70,42 @@ app.get('/admin', (req, res) => {
   <meta charset="UTF-8">
   <title>License Dashboard</title>
   <style>
-    body {font-family: Arial; background:#111; color:#eee; padding:20px;}
+    body {font-family: Arial, sans-serif; background:#111; color:#eee; padding:20px; max-width:1000px; margin:auto;}
     table {border-collapse:collapse; width:100%; margin-top:20px;}
     th, td {border:1px solid #555; padding:12px; text-align:left;}
     th {background:#333;}
     tr:nth-child(even) {background:#222;}
-    button {background:#c00; color:#fff; border:none; padding:8px 16px; cursor:pointer;}
+    button {background:#c00; color:#fff; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;}
     button:hover {background:#f00;}
-    input {padding:8px; width:200px;}
+    input[type=text] {padding:8px; width:300px; background:#333; color:#fff; border:1px solid #555;}
     a {color:#0f0;}
+    form {margin:20px 0;}
   </style>
 </head>
 <body>
   <h1>🔑 License Dashboard</h1>
+  
   <form action="/admin/add" method="POST">
-    <input name="key" placeholder="Новый ключ (например PATRON001)" required>
+    <input type="hidden" name="pass" value="${pass}">
+    <input type="text" name="key" placeholder="Новый ключ (например PATRON001)" required>
     <button type="submit">Добавить ключ (макс. 2 устройства)</button>
   </form>
+  
   <table>
     <tr><th>Ключ</th><th>Устройств</th><th>Список устройств</th><th>Действия</th></tr>`;
 
-  Object.entries(db.get('keys').value() || {}).forEach(([key, data]) => {
+  const keys = db.get('keys').value() || {};
+  Object.entries(keys).forEach(([key, data]) => {
     const count = data.devices.length;
-    const color = count > 2 ? 'red' : '#0f0';
+    const color = count > 2 ? 'red' : (count === data.max ? 'orange' : '#0f0');
     html += `
     <tr>
-      <td>${key}</td>
+      <td><b>${key}</b></td>
       <td style="color:${color};font-weight:bold;">${count}/${data.max}</td>
-      <td>${data.devices.join('<br>')}</td>
+      <td>${data.devices.map(d => d.slice(0,16) + '...').join('<br>') || '—'}</td>
       <td>
         <form action="/admin/revoke" method="POST" style="display:inline;">
+          <input type="hidden" name="pass" value="${pass}">
           <input type="hidden" name="key" value="${key}">
           <button type="submit">🚫 Revoke + Ban</button>
         </form>
@@ -103,7 +114,8 @@ app.get('/admin', (req, res) => {
   });
 
   html += `</table>
-  <p><a href="/admin?pass=${pass}">Обновить</a></p>
+  <p><a href="/admin?pass=${pass}">↻ Обновить страницу</a></p>
+  <p style="opacity:0.7;font-size:0.9em;margin-top:40px;">Сервер работает автономно. Последнее обновление: ${new Date().toLocaleString('ru-RU')}</p>
 </body>
 </html>`;
   res.send(html);
@@ -111,24 +123,32 @@ app.get('/admin', (req, res) => {
 
 // Admin: добавить ключ
 app.post('/admin/add', express.urlencoded({ extended: true }), (req, res) => {
-  if (req.body.pass !== db.get('adminPass').value()) return res.redirect('/admin');
-  const key = req.body.key.trim();
+  const pass = req.body.pass;
+  if (pass !== db.get('adminPass').value()) {
+    return res.send('<h1>🚫 Доступ запрещён</h1>');
+  }
+  const key = req.body.key?.trim();
   if (key) {
     db.set(`keys.${key}`, { devices: [], max: 2 }).write();
   }
-  res.redirect(`/admin?pass=${req.body.pass}`);
+  res.redirect(`/admin?pass=${pass}`);
 });
 
 // Admin: revoke ключ
 app.post('/admin/revoke', express.urlencoded({ extended: true }), (req, res) => {
-  if (req.body.pass !== db.get('adminPass').value()) return res.redirect('/admin');
-  db.unset(`keys.${req.body.key}`).write();
-  res.redirect(`/admin?pass=${req.body.pass}`);
+  const pass = req.body.pass;
+  if (pass !== db.get('adminPass').value()) {
+    return res.send('<h1>🚫 Доступ запрещён</h1>');
+  }
+  const key = req.body.key;
+  if (key) {
+    db.unset(`keys.${key}`).write();
+  }
+  res.redirect(`/admin?pass=${pass}`);
 });
 
-// Запуск на Render (PORT из env)
+// Запуск на Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-
+  console.log(`License server running on port ${PORT}`);
 });
