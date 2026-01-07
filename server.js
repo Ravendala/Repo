@@ -110,7 +110,7 @@ app.get('/admin', async (req, res) => {
 <table><tr><th>Ключ</th><th>Люди</th><th>Ники</th><th>Действия</th></tr>`;
 
   for (const row of keysRes.rows) {
-    html += `<tr><td><b>\( {row.key}</b></td><td> \){row.nicks.length}/${row.max_users}</td>
+    html += `<tr><td><b>${row.key}</b></td><td>${row.nicks.length}/${row.max_users}</td>
     <td>${row.nicks.map(n => `
       • ${n}<br>
       <form action="/admin/remove-nick" method="POST" style="display:inline;">
