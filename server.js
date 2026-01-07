@@ -1,32 +1,34 @@
 const express = require('express');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
+const cors = require('cors'); // ←←← Новая строка
+
 const adapter = new FileSync('db.json');
 const db = low(adapter);
 
 const app = express();
+
 app.use(express.json());
 
-// CORS для всех (браузер + лаунчер)
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.header('Access-Control-Allow-Methods', 'GET,POST');
-  next();
-});
+// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+// НОВЫЙ CORS — автоматически обрабатывает OPTIONS и preflight
+app.use(cors());
+// Если хочешь быть более строгим (рекомендую для будущего):
+// app.use(cors({ origin: '*', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type'] }));
+// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 
 // Инициализация БД
-db.defaults({ 
-  keys: {}, 
-  adminPass: 'accesstranslation'  // ←←← Твой текущий пароль (можно сменить на более сложный)
+db.defaults({
+  keys: {},
+  adminPass: 'accesstranslation' // ←←← Твой текущий пароль (можно сменить)
 }).write();
 
-// Пинг для проверки интернета / keep-alive
+// Пинг для проверки / keep-alive
 app.get('/ping', (req, res) => res.send('ok'));
 
 const API = '/api';
 
-// Регистрация нового устройства (первый запуск)
+// Регистрация нового устройства
 app.post(API + '/register', (req, res) => {
   const { key, device } = req.body;
   if (!key || !device) return res.json({ valid: false, err: 'missing data' });
@@ -46,7 +48,7 @@ app.post(API + '/register', (req, res) => {
   res.json({ valid: true });
 });
 
-// Валидация (каждый запуск и фоновая проверка)
+// Валидация
 app.post(API + '/validate', (req, res) => {
   const { key, device } = req.body;
   if (!key || !device) return res.json({ valid: false });
@@ -84,13 +86,13 @@ app.get('/admin', (req, res) => {
 </head>
 <body>
   <h1>🔑 License Dashboard</h1>
-  
+ 
   <form action="/admin/add" method="POST">
     <input type="hidden" name="pass" value="${pass}">
     <input type="text" name="key" placeholder="Новый ключ (например PATRON001)" required>
     <button type="submit">Добавить ключ (макс. 2 устройства)</button>
   </form>
-  
+ 
   <table>
     <tr><th>Ключ</th><th>Устройств</th><th>Список устройств</th><th>Действия</th></tr>`;
 
@@ -118,6 +120,7 @@ app.get('/admin', (req, res) => {
   <p style="opacity:0.7;font-size:0.9em;margin-top:40px;">Сервер работает автономно. Последнее обновление: ${new Date().toLocaleString('ru-RU')}</p>
 </body>
 </html>`;
+
   res.send(html);
 });
 
@@ -147,7 +150,7 @@ app.post('/admin/revoke', express.urlencoded({ extended: true }), (req, res) => 
   res.redirect(`/admin?pass=${pass}`);
 });
 
-// Запуск на Render
+// Запуск
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`License server running on port ${PORT}`);
