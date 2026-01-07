@@ -16,7 +16,7 @@ app.use((req, res, next) => {
 
 db.defaults({ 
   keys: {}, 
-  adminPass: 'access'
+  adminPass: 'accesstranslation'
 }).write();
 
 app.get('/ping', (req, res) => res.send('ok'));
@@ -130,4 +130,5 @@ app.post('/admin/revoke', express.urlencoded({ extended: true }), (req, res) => 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
 });
